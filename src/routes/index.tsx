@@ -78,7 +78,7 @@ function Index() {
             <Sparkles className="size-3.5 text-primary" /> Read less, do more
           </span>
           <h1 className="mt-5 text-4xl leading-[1.1] sm:text-6xl">
-            Turn any book into a <em className="text-primary">7-day action plan</em>
+            The whole book, turned into <em className="text-primary">real-life action</em>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
             Upload a PDF and get the complete breakdown.
