@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { chunkText, type BookAnalysis } from "./analysis";
+import { chunkText, MAX_CHUNKS, type BookAnalysis } from "./analysis";
 
 const inputSchema = z.object({
   fileName: z.string().min(1),
@@ -38,47 +38,61 @@ export const analyzeBook = createServerFn({ method: "POST" })
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("AI is not configured for this project.");
 
-    const chunks = chunkText(data.text);
+    const allChunks = chunkText(data.text);
+    const chunks = allChunks.slice(0, MAX_CHUNKS);
 
+    // Read the whole book, part by part, in parallel batches.
     const notes: string[] = [];
-    for (const chunk of chunks) {
-      const note = await callAI(apiKey, [
-        {
-          role: "system",
-          content:
-            "You extract practical, actionable lessons from book excerpts. Be concrete, skip fluff, no preamble.",
-        },
-        {
-          role: "user",
-          content: `Excerpt from "${data.fileName}". List the most practical, applicable lessons in this excerpt as short bullets:\n\n${chunk}`,
-        },
-      ]);
-      notes.push(note);
+    const BATCH = 4;
+    for (let i = 0; i < chunks.length; i += BATCH) {
+      const batch = chunks.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map((chunk, j) =>
+          callAI(apiKey, [
+            {
+              role: "system",
+              content:
+                "You read a part of a book and report everything useful in it: the arguments, lessons, frameworks, examples and numbers. Be concrete and complete, no fluff, no preamble.",
+            },
+            {
+              role: "user",
+              content: `Part ${i + j + 1} of ${chunks.length} of the book "${data.fileName}". Summarise everything covered in this part as bullets, and for each bullet note how a normal person could actually use it in real life:\n\n${chunk}`,
+            },
+          ]),
+        ),
+      );
+      notes.push(...results);
     }
 
     const raw = await callAI(apiKey, [
       {
         role: "system",
         content:
-          "You turn book insights into real-life action. Reply with JSON only, no markdown fences.",
+          "You turn a complete set of book notes into a full, practical breakdown. Reply with JSON only, no markdown fences.",
       },
       {
         role: "user",
-        content: `Notes gathered from the book file "${data.fileName}":\n\n${notes.join("\n\n---\n\n")}\n\nReturn JSON with this exact shape:
+        content: `Complete notes covering the whole book "${data.fileName}", in reading order:\n\n${notes
+          .map((n, i) => `### Part ${i + 1}\n${n}`)
+          .join("\n\n")}\n\nReturn JSON with this exact shape:
 {
   "bookTitle": "best guess at the book title",
-  "overview": "2 sentences on what this book helps you do",
+  "overview": "3-4 sentences covering what the whole book is about and what it helps you do",
+  "sections": [ { "heading": "part or theme name", "summary": "3-5 sentences summarising everything this part covers", "realLife": "exactly where and how someone can use this part in real life" } ],
   "ideas": [ { "title": "short idea name", "summary": "exactly 2 sentences", "useCase": "one concrete real-life situation where this applies", "steps": ["3 to 5 step-by-step actions"] } ],
   "plan": [ { "day": 1, "focus": "short focus", "action": "one specific action to do that day" } ]
 }
-Rules: exactly 5 ideas, exactly 7 plan days (day 1-7), every step must be doable today, no generic advice.`,
+Rules: "sections" must cover the ENTIRE book in order — one section per major part or theme, 5 to 10 sections, nothing important left out. Exactly 5 ideas. Exactly 7 plan days (day 1-7). Every step must be doable today. No generic advice.`,
       },
     ]);
 
     const parsed = parseJson(raw);
     return {
       ...parsed,
+      sections: parsed.sections ?? [],
       ideas: (parsed.ideas ?? []).slice(0, 5),
       plan: (parsed.plan ?? []).slice(0, 7),
+      coveredChunks: chunks.length,
+      totalChunks: allChunks.length,
     };
   });
