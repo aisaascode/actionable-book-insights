@@ -78,11 +78,12 @@ function Index() {
             <Sparkles className="size-3.5 text-primary" /> Read less, do more
           </span>
           <h1 className="mt-5 text-4xl leading-[1.1] sm:text-6xl">
-            Turn any book into a <em className="text-primary">7-day action plan</em>
+            The whole book, turned into <em className="text-primary">real-life action</em>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Upload a PDF and Booklogy pulls out the 5 biggest ideas, a real-life use case for each,
-            and step-by-step actions you can start today.
+            Upload a PDF and get the complete breakdown.
+            Booklogy reads the whole book — every part summarised, plus exactly where you can use
+            it in real life and a 7-day action plan.
           </p>
 
           <div
@@ -104,7 +105,9 @@ function Index() {
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="size-6 animate-spin text-primary" />
                 <p className="text-sm font-medium">
-                  {status === "reading" ? "Reading your PDF…" : "Finding what you can act on…"}
+                  {status === "reading"
+                    ? "Reading every page of your PDF…"
+                    : "Analyzing the whole book and mapping it to real life…"}
                 </p>
                 <p className="text-xs text-muted-foreground">{fileName}</p>
               </div>
@@ -135,10 +138,30 @@ function Index() {
             <div>
               <h2 className="text-3xl">{result.bookTitle}</h2>
               <p className="mt-2 text-muted-foreground">{result.overview}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Whole book analyzed · {result.coveredChunks} of {result.totalChunks} parts read
+              </p>
             </div>
           </div>
 
-          <h3 className="mt-12 text-2xl">The 5 ideas that matter</h3>
+          <h3 className="mt-12 text-2xl">The whole book, part by part</h3>
+          <div className="mt-5 space-y-4">
+            {result.sections.map((section, i) => (
+              <article
+                key={section.heading + i}
+                className="rounded-2xl border border-border bg-card p-6 shadow-paper"
+              >
+                <h4 className="font-display text-xl">{section.heading}</h4>
+                <p className="mt-2 text-sm text-muted-foreground">{section.summary}</p>
+                <p className="mt-3 rounded-lg bg-secondary px-4 py-3 text-sm">
+                  <span className="font-medium">Use it in real life: </span>
+                  {section.realLife}
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <h3 className="mt-12 text-2xl">The 5 ideas that matter most</h3>
           <div className="mt-5 space-y-5">
             {result.ideas.map((idea, i) => (
               <article
