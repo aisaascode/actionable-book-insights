@@ -5,6 +5,9 @@ import { chunkText, MAX_CHUNKS, type BookAnalysis } from "./analysis";
 const inputSchema = z.object({
   fileName: z.string().min(1),
   text: z.string().min(200, "Not enough readable text"),
+  goal: z.string().max(120).optional(),
+  audience: z.string().max(120).optional(),
+  ocr: z.boolean().optional(),
 });
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -37,6 +40,16 @@ export const analyzeBook = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<BookAnalysis> => {
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("AI is not configured for this project.");
+
+    const focus = [
+      data.goal ? `their main goal: ${data.goal}` : "",
+      data.audience ? `who they are: ${data.audience}` : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
+    const tailoring = focus
+      ? `The reader has told you ${focus}. Every real-life use case, every step and every day of the plan must be tailored to that context, using their vocabulary and their situation.`
+      : "";
 
     const allChunks = chunkText(data.text);
     const chunks = allChunks.slice(0, MAX_CHUNKS);
@@ -82,6 +95,7 @@ export const analyzeBook = createServerFn({ method: "POST" })
   "ideas": [ { "title": "short idea name", "summary": "exactly 2 sentences", "useCase": "one concrete real-life situation where this applies", "steps": ["3 to 5 step-by-step actions"] } ],
   "plan": [ { "day": 1, "focus": "short focus", "action": "one specific action to do that day" } ]
 }
+${tailoring}
 Rules: "sections" must cover the ENTIRE book in order — one section per major part or theme, 5 to 10 sections, nothing important left out. Exactly 5 ideas. Exactly 7 plan days (day 1-7). Every step must be doable today. No generic advice.`,
       },
     ]);
